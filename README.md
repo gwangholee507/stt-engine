@@ -44,8 +44,8 @@ mic → audiostackd ─AUDIO/SESSION_*→ stt-engine (NPU) ─RESULT/ENGINE_STAT
 
 ```bash
 mkdir -p ~/rubikpi/bins && cd ~/rubikpi/bins
-gh release download v0.1 -R khu-cse-capstone-26h2-transcriber/stt-engine
-sha256sum -c SHA256SUMS
+gh release download v0.1 -R khu-cse-capstone-26h2-transcriber/stt-engine -p '*.bin' -p '*.vocab' -p SHA256SUMS
+sha256sum -c --ignore-missing SHA256SUMS      # ONNX(Mac 시험용)는 보드에 필요 없음
 ```
 
 
