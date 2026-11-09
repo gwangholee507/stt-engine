@@ -5,6 +5,7 @@
 | `mel_filters.bin`, `mel_filters.npy` | Whisper 멜 필터 (Hugging Face `WhisperFeatureExtractor`와 같은 값) | MIT, Copyright (c) 2022 OpenAI |
 | `vocab.bin`, `vocab_bytes.json` | Whisper 토큰 표 (`seastar105/whisper-small-komixv2` 토크나이저 = `openai/whisper-small`) | MIT, Copyright (c) 2022 OpenAI / Apache-2.0 (모델 카드) |
 | `silero_vad.onnx` | [snakers4/silero-vad](https://github.com/snakers4/silero-vad) | MIT, Copyright (c) 2020-present Silero Team |
+| `samples/fleurs_ko_30s.wav`, `.txt` | [FLEURS](https://huggingface.co/datasets/google/fleurs) 한국어 test 5문장을 0.6초 쉼을 두고 이어 붙임 (`.txt`는 정답) | CC BY 4.0, Google |
 | `astk_client.py` | 같은 팀 [audio-stack](https://github.com/khu-cse-capstone-26h2-transcriber/audio-stack) `client/astk_client.py`를 그대로 복사 | audio-stack을 따름 |
 
 모델 파일(`.bin`, 이 저장소에 없음)의 출처와 조건은 `README.md`의 '모델 출처와 라이선스'에 있습니다.

@@ -99,11 +99,16 @@ python3 tools/astk_selftest.py some_70s.wav --socket /tmp/astk-st/engine.sock --
 ASTK_ENGINE_SOCKET=/tmp/astk-st/engine.sock sh run_engine.sh
 ```
 
-Mac에서는 NPU 대신 ONNX로 같은 흐름을 돌릴 수 있습니다(동작 확인용이며, 정확도와 속도는 보드 값이 아님):
+Mac에서는 NPU 대신 ONNX로 같은 흐름을 돌릴 수 있습니다(동작 확인용이며, 정확도와 속도는 보드 값이 아님). ONNX 모델(양자화 전, 약 1.1 GB)도 Release `v0.1`에 있습니다:
 
 ```bash
-WHISPER_RUNNER="python3 fake_runner.py" python3 board_stream.py --astk /tmp/astk.sock --bins <enc_10s.onnx와 dec_10s.onnx가 있는 폴더>
+pip install numpy onnxruntime
+mkdir -p ~/onnx && gh release download v0.1 -R khu-cse-capstone-26h2-transcriber/stt-engine -p '*.onnx' -D ~/onnx
+python3 ~/audio-stack/tools/feed_wav.py samples/fleurs_ko_30s.wav --socket /tmp/astk/engine.sock &
+WHISPER_RUNNER="python3 fake_runner.py" python3 board_stream.py --astk /tmp/astk/engine.sock --once --bins ~/onnx
 ```
+
+시험용 음성 `samples/fleurs_ko_30s.wav`(26초, 5문장, 정답 `.txt`)는 FLEURS(CC BY 4.0)에서 만들었습니다. 웹 화면까지 보는 방법은 web-app의 `docs/device-ingest.md`에 있습니다.
 
 실제 `audiostackd` 연결 시험(ALSA snd-aloop + 백엔드 대역): `tools/astk_backend_stub.py`가 데몬의 HTTP POST를 기록하고, `tools/astk_loopback_check.py`가 세션별로 결과가 맞게 들어갔는지 확인합니다.
 
@@ -121,6 +126,7 @@ WHISPER_RUNNER="python3 fake_runner.py" python3 board_stream.py --astk /tmp/astk
 | `silero_vad.onnx` | 선택 사항인 Silero VAD (`--vad silero`, MIT) |
 | `fake_runner.py` | Mac에서 쓰는 ONNX 대역 실행기 |
 | `tools/` | 프로토콜 시험 도구 |
+| `samples/` | 시험용 음성과 정답 (FLEURS) |
 | `THIRD_PARTY.md` | 다른 프로젝트에서 가져온 파일과 라이선스 |
 
 ## 모델 출처와 라이선스 (2026-11-09 확인)
