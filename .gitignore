@@ -1,0 +1,15 @@
+# QNN SDK headers (copy from the SDK, see README) and build outputs
+include/
+*.o
+*.a
+whisper_npu
+asr_cli
+bin_info
+__pycache__/
+# models (download, see README)
+*.bin
+!mel_filters.bin
+!vocab.bin
+*.vocab
+*.onnx
+!silero_vad.onnx

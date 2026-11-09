@@ -1,0 +1,22 @@
+# Korean Whisper STT engine (NPU) for audiostackd. Not installed by any script yet.
+#   sudo cp whisper-engine.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now whisper-engine
+#   journalctl -u whisper-engine -f
+# Needs: the user below in the "audio" group (audiostackd creates engine.sock as root:audio 0660),
+#        CPU governor "performance" for the measured speed (set_governor.sh, reset on reboot).
+[Unit]
+Description=Korean Whisper STT engine on the NPU (audiostackd client)
+Wants=audiostack.service
+After=audiostack.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=audio
+WorkingDirectory=/home/ubuntu/rubikpi/runner
+Environment=ASTK_ENGINE_SOCKET=/run/audiostack/engine.sock
+ExecStart=/bin/sh /home/ubuntu/rubikpi/runner/run_engine.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
