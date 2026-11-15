@@ -17,7 +17,7 @@ mic → audiostackd ─AUDIO/SESSION_*→ stt-engine (NPU) ─RESULT/ENGINE_STAT
 | 같은 조건, `dec_10s_pv.bin` | 5.5% | 0.105 / 0.121 | 0.90 / 2.89 s |
 | 실제 `audiostackd`를 거침 (snd-aloop, talk04 162초) | 3.5% | - | 1.07 / 1.77 s |
 
-잡음: 합성 잡음 10 dB에서 CER이 13.7~25.4%까지 오르지만 `--adapt`를 켜면 9.6~14.7%로 내려갑니다. 말이 없는 먼 말소리에서 지어낸 글자는 `--lp-min -0.5`로 94% 줄어듭니다. 둘 다 기본은 꺼져 있고 `EXTRA="--adapt --lp-min -0.5"`로 켭니다.
+잡음: 합성 잡음 10 dB에서 CER이 13.7~25.4%까지 오르지만 `--adapt`를 켜면 9.6~14.7%로 내려갑니다. 말이 없는 먼 말소리에서 지어낸 글자는 `--lp-min -0.5`로 94% 줄어듭니다. `run_engine.sh`는 둘 다 기본으로 켜고, `NOISE=0`이면 끕니다.
 
 측정 방법과 원본 수치는 AI 파트 결과 문서(`results/board_*.md`)에 있습니다.
 
@@ -79,7 +79,8 @@ ASTK_ENGINE_SOCKET=/tmp/astk/engine.sock DEC=dec_10s_pv.bin sh run_engine.sh
 | `DEC` | `dec_10s.bin` | 디코더 |
 | `PARTIAL` | `2` | 중간 결과 간격(초), 0이면 끔 |
 | `CUT` | `early` | 긴 말을 자르는 방식 |
-| `EXTRA` | (없음) | 그 밖의 `board_stream.py` 옵션 (예: `--adapt --lp-min -0.5`) |
+| `NOISE` | `1` | 잡음 옵션 `--adapt --lp-min -0.5` (`0`이면 끔) |
+| `EXTRA` | (없음) | 그 밖의 `board_stream.py` 옵션 |
 
 서비스로 등록하는 방법: [`whisper-engine.service`](whisper-engine.service) 맨 위 주석.
 
