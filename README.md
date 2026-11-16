@@ -19,6 +19,8 @@ mic → audiostackd ─AUDIO/SESSION_*→ stt-engine (NPU) ─RESULT/ENGINE_STAT
 
 잡음: 합성 잡음 10 dB에서 CER이 13.7~25.4%까지 오르지만 `--adapt`를 켜면 9.6~14.7%로 내려갑니다. 말이 없는 먼 말소리에서 지어낸 글자는 `--lp-min -0.5`로 94% 줄어듭니다. `run_engine.sh`는 둘 다 기본으로 켜고, `NOISE=0`이면 끕니다.
 
+partial 안정화: 연속한 두 partial이 같게 낸 앞부분(단어 단위)을 확정해 다음 partial과 final의 앞에 고정하고, partial의 마지막 단어는 보내지 않습니다(`--stable final --hold-last`). 보드에서 강연 10개 기준 partial이 앞서 낸 글자를 바꾸는 비율이 53%→24%, 마지막 partial과 final이 다른 비율이 40%→19%로 줄었고, CER은 7.15%→6.94%, 지연은 그대로였습니다. `run_engine.sh`는 기본으로 켜고, `STABLE=0`이면 끕니다.
+
 측정 방법과 원본 수치는 AI 파트 결과 문서(`results/board_*.md`)에 있습니다.
 
 ## 폴더 구성 (보드)
@@ -80,6 +82,7 @@ ASTK_ENGINE_SOCKET=/tmp/astk/engine.sock DEC=dec_10s_pv.bin sh run_engine.sh
 | `PARTIAL` | `2` | 중간 결과 간격(초), 0이면 끔 |
 | `CUT` | `early` | 긴 말을 자르는 방식 |
 | `NOISE` | `1` | 잡음 옵션 `--adapt --lp-min -0.5` (`0`이면 끔) |
+| `STABLE` | `1` | partial 안정화 `--stable final --hold-last` (`0`이면 끔) |
 | `EXTRA` | (없음) | 그 밖의 `board_stream.py` 옵션 |
 
 서비스로 등록하는 방법: [`whisper-engine.service`](whisper-engine.service) 맨 위 주석.

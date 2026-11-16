@@ -29,7 +29,7 @@ near a segment cut (<1.5 s), or in no segment (VAD dropped it); worst segments a
 import argparse, collections, difflib, os, pathlib, queue, re, subprocess, threading, time
 import numpy as np
 from segmenter import Segmenter
-from board_asr import WhisperNPU, invented, log_mel, detok, read_wav, edit_distance, norm, align, strip_fillers, PREFIX, SR
+from board_asr import WhisperNPU, invented, log_mel, detok, _vocab, read_wav, edit_distance, norm, align, strip_fillers, PREFIX, SR
 
 HERE = pathlib.Path(__file__).resolve().parent
 ap = argparse.ArgumentParser()
@@ -56,6 +56,12 @@ ap.add_argument("--dip-db", type=float, default=12.0, help="min dip below speech
 ap.add_argument("--adapt", action="store_true", help="noise-aware pause and word-gap thresholds (segmenter.py)")
 ap.add_argument("--lp-min", type=float, help="drop results with average log prob below this, or dominated by one repeated word (e.g. -0.5); off by default")
 ap.add_argument("--partial", type=float, default=0, help="provisional result every N s of a growing segment (0 = off)")
+ap.add_argument("--stable", default="off", choices=["off", "partial", "final"],
+                help="partial stabilization: tokens two partials in a row agree on (up to a word boundary) are committed and "
+                     "fed to the decoder as a forced prefix of later partials (partial) and of the final too (final); "
+                     "RESULT partials carry stable_chars")
+ap.add_argument("--hold-last", action="store_true",
+                help="partials leave out their last word (often cut off mid-word; it comes with the next partial or the final)")
 ap.add_argument("--dec", help="decoder .bin name in --bins (default dec_<window>s.bin), e.g. dec_10s_pv.bin")
 a = ap.parse_args()
 FRAME = 512 if a.vad == "silero" else 480
@@ -308,17 +314,47 @@ def clean_text(text, final):
     return ""
 
 
+pstable = {}                                          # --stable: segment -> (committed tokens, previous partial tokens)
+
+
+def word_start(t): return _vocab.get(t, b"").startswith(b" ")
+
+
+def committed(n):
+    for k in [k for k in pstable if k < n]: del pstable[k]  # segments already finalized
+    return pstable.get(n, ([], []))[0]
+
+
+def commit(n, full):
+    """LocalAgreement-2 on tokens: the common prefix of this and the previous partial, cut back to a word boundary."""
+    com, prev = pstable.get(n, ([], []))
+    k = 0
+    while k < min(len(prev), len(full)) and prev[k] == full[k]: k += 1
+    while k > len(com) and not (k < len(full) and word_start(full[k])): k -= 1   # the next token must start a word
+    if k > len(com): com = full[:k]
+    pstable[n] = (com, full)
+    return com
+
+
 def run_partial(job, done):
     n, s, e, x, info = job
     if n <= done: pstats["skipped"] += 1; return        # its final already went out
     ts = time.perf_counter()
-    enc_ms = model.encode(log_mel(x, a.window)); toks, dec_ms, _ = model.decode(seconds=len(x) / SR)
-    text = clean_text(detok(toks), False); proc = time.perf_counter() - ts
+    com = committed(n) if a.stable != "off" else []
+    enc_ms = model.encode(log_mel(x, a.window)); toks, dec_ms, _ = model.decode(seconds=len(x) / SR, forced=com)
+    full = com + toks
+    text = clean_text(detok(full), False); proc = time.perf_counter() - ts
+    stable = None
+    if a.stable != "off" and text: stable = len(detok(commit(n, full)))
+    if a.hold_last:
+        text = text.rsplit(" ", 1)[0] if " " in text else ""
+        if stable is not None: stable = min(stable, len(text))
     lat = latency(e)
     pstats["run"].append((proc, lat))
-    if text: send_result("partial", n, info, text)
+    if text: send_result("partial", n, info, text, stable)
+    shown = text if stable is None else f"{text[:stable]}|{text[stable:]}"
     print(f"[partial {s/SR:6.1f}~{e/SR:6.1f}s seg {n}] enc {enc_ms:3.0f}ms dec {dec_ms:4.0f}ms ({len(toks)} tok) "
-          f"latency {lat:4.2f}s | {text}", flush=True)
+          f"latency {lat:4.2f}s | {shown}", flush=True)
 
 
 def latency(e):
@@ -326,12 +362,13 @@ def latency(e):
     return time.monotonic() - t_at(e) if a.astk else time.perf_counter() - (t0 + e / SR / a.speed)
 
 
-def send_result(kind, n, info, text):
+def send_result(kind, n, info, text, stable=None):
     """--astk RESULT. Results with no open session (between SESSION_END and the next SESSION_BEGIN) are not sent."""
     if client is None: return
     if info["sid"] is None: print(f"[astk] no open session, {kind} not sent", flush=True); return
     extra = {"seg_id": info["seg"], "t_start_us": info["t0_us"], "t_end_us": info["t1_us"]}
     if kind == "final" and not text: extra["empty"] = True
+    if stable is not None: extra["stable_chars"] = stable
     astk_send("send_result", text, kind=kind, t_start_ms=info["t0_ms"], t_end_ms=info["t1_ms"], session_id=info["sid"], extra=extra)
 
 
@@ -352,8 +389,9 @@ def infer():
             continue
         n, s, e, x, forced, info = item
         ts = time.perf_counter()
-        enc_ms = model.encode(log_mel(x, a.window)); toks, dec_ms, _ = model.decode(seconds=len(x) / SR)
-        text = clean_text(detok(toks), True); proc = time.perf_counter() - ts
+        com = committed(n) if a.stable == "final" else []
+        enc_ms = model.encode(log_mel(x, a.window)); toks, dec_ms, _ = model.decode(seconds=len(x) / SR, forced=com)
+        text = clean_text(detok(com + toks), True); proc = time.perf_counter() - ts
         if prev_forced: text = merge(last, text)
         out.append(text); last = text or last; prev_forced = forced; done = n
         lat = latency(e)

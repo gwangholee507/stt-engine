@@ -30,9 +30,11 @@ class WhisperNPU:
         self.p.stdin.write(b"E" + np.ascontiguousarray(mel, np.float32).tobytes()); self.p.stdin.flush()
         return struct.unpack("<f", self._read(4))[0]
 
-    def decode(self, max_new=120, seconds=0.0):   # seconds: audio length -> repeat stop in the runner (WHISPER_GUARD=0: off)
+    def decode(self, max_new=120, seconds=0.0, forced=()):   # seconds: audio length -> repeat stop in the runner (WHISPER_GUARD=0: off)
+        """forced: text tokens fed after PREFIX as given (not returned; the result continues after them)."""
         if os.environ.get("WHISPER_GUARD") == "0": seconds = 0.0
-        self.p.stdin.write(b"G" + struct.pack("<f", seconds) + b"D" + struct.pack(f"<i{len(PREFIX)}ii", len(PREFIX), *PREFIX, max_new)); self.p.stdin.flush()
+        pre = PREFIX + list(forced)
+        self.p.stdin.write(b"G" + struct.pack("<f", seconds) + b"D" + struct.pack(f"<i{len(pre)}ii", len(pre), *pre, max_new)); self.p.stdin.flush()
         n = struct.unpack("<i", self._read(4))[0]
         toks = list(struct.unpack(f"<{n}i", self._read(4 * n))) if n else []
         tot, npu, self.last_lp = struct.unpack("<fff", self._read(12))     # avg log prob of the chosen tokens
